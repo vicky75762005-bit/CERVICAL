@@ -77,7 +77,10 @@ const state = {
   bridgesVisible: true,
   pointer: null,
   dragging: false,
-  pinchDistance: null,
+  pointers: new Map(),
+  pinch: null,
+  suppressClick: false,
+  suppressClickTimer: null,
 };
 
 function createSvgElement(name, attributes = {}) {
@@ -153,6 +156,10 @@ function renderEdges() {
     label.textContent = bridge.label;
     annotation.append(symbol, label);
     annotation.addEventListener("click", (event) => {
+      if (state.suppressClick) {
+        event.preventDefault();
+        return;
+      }
       event.stopPropagation();
       openBridgePopover(bridge);
     });
@@ -172,6 +179,10 @@ function renderNodes() {
     button.setAttribute("aria-label", `${node.label}：${node.fullName}`);
     button.innerHTML = `<span>${escapeHtml(node.label)}</span>`;
     button.addEventListener("click", (event) => {
+      if (state.suppressClick) {
+        event.preventDefault();
+        return;
+      }
       event.stopPropagation();
       selectNode(node.id);
     });
@@ -691,27 +702,95 @@ function bindCanvasGestures() {
   );
 
   dom.wrap.addEventListener("pointerdown", (event) => {
-    if (event.target.closest(".tree-node, .bridge-annotation, .bridge-popover")) return;
+    const interactiveTarget = event.target.closest(".tree-node, .bridge-annotation, .bridge-popover");
+    if (interactiveTarget && state.pointers.size === 0) return;
+
+    event.preventDefault();
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    dom.wrap.setPointerCapture(event.pointerId);
+
+    if (state.pointers.size >= 2) {
+      beginPinch();
+      return;
+    }
+
     state.pointer = { x: event.clientX - state.x, y: event.clientY - state.y };
     state.dragging = true;
     dom.wrap.classList.add("grabbing");
-    dom.wrap.setPointerCapture(event.pointerId);
   });
 
   dom.wrap.addEventListener("pointermove", (event) => {
+    if (!state.pointers.has(event.pointerId)) return;
+    state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (state.pointers.size >= 2 && state.pinch) {
+      updatePinch();
+      return;
+    }
+
     if (!state.dragging || !state.pointer) return;
     state.x = event.clientX - state.pointer.x;
     state.y = event.clientY - state.pointer.y;
     applyTransform();
   });
 
-  const endDrag = () => {
+  const endGesture = (event) => {
+    state.pointers.delete(event.pointerId);
+
+    if (state.pinch) {
+      state.suppressClick = true;
+      clearTimeout(state.suppressClickTimer);
+      state.suppressClickTimer = setTimeout(() => {
+        state.suppressClick = false;
+      }, 240);
+    }
+
+    state.pinch = null;
+    if (state.pointers.size === 1) {
+      const remaining = state.pointers.values().next().value;
+      state.pointer = { x: remaining.x - state.x, y: remaining.y - state.y };
+      state.dragging = true;
+      return;
+    }
+
     state.dragging = false;
     state.pointer = null;
     dom.wrap.classList.remove("grabbing");
   };
-  dom.wrap.addEventListener("pointerup", endDrag);
-  dom.wrap.addEventListener("pointercancel", endDrag);
+  dom.wrap.addEventListener("pointerup", endGesture);
+  dom.wrap.addEventListener("pointercancel", endGesture);
+}
+
+function beginPinch() {
+  const points = [...state.pointers.values()].slice(0, 2);
+  const rect = dom.wrap.getBoundingClientRect();
+  const midpointX = (points[0].x + points[1].x) / 2 - rect.left;
+  const midpointY = (points[0].y + points[1].y) / 2 - rect.top;
+  state.pinch = {
+    distance: Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y),
+    startScale: state.scale,
+    worldX: (midpointX - state.x) / state.scale,
+    worldY: (midpointY - state.y) / state.scale,
+  };
+  state.dragging = false;
+  state.suppressClick = true;
+  dom.wrap.classList.add("grabbing");
+}
+
+function updatePinch() {
+  const points = [...state.pointers.values()].slice(0, 2);
+  const distance = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
+  if (!state.pinch.distance) return;
+
+  const rect = dom.wrap.getBoundingClientRect();
+  const midpointX = (points[0].x + points[1].x) / 2 - rect.left;
+  const midpointY = (points[0].y + points[1].y) / 2 - rect.top;
+  const nextScale = Math.max(0.1, Math.min(2.5, state.pinch.startScale * (distance / state.pinch.distance)));
+
+  state.scale = nextScale;
+  state.x = midpointX - state.pinch.worldX * nextScale;
+  state.y = midpointY - state.pinch.worldY * nextScale;
+  applyTransform();
 }
 
 function openSidebar() {

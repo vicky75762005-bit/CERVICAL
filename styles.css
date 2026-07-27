@@ -1458,12 +1458,32 @@ footer a {
     padding: 0 8px;
   }
 
+  .map-header {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .map-header > div:first-child {
+    min-width: 0;
+  }
+
   .map-header h2 {
+    overflow: hidden;
     font-size: 15px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .map-actions {
+    flex: 0 0 auto;
   }
 
   .map-actions button {
-    padding: 0 8px;
+    min-width: 31px;
+    padding: 0 7px;
   }
 
   .minimap {
