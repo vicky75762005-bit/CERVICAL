@@ -1,4 +1,4 @@
-import { BRIDGES, EDGES, MECHANICS, NODES } from "./data.js";
+import { BRIDGES, EDGES, FLASHCARDS, MECHANICS, NODES } from "./data.js";
 
 const NODE_W = 154;
 const NODE_H = 50;
@@ -32,6 +32,11 @@ const dom = {
   mechanicsConfusion: document.querySelector("#mechanics-confusion"),
   mechanicsNext: document.querySelector("#mechanics-next"),
   mechanicsEmpty: document.querySelector("#mechanics-empty"),
+  quizSection: document.querySelector("#quiz-section"),
+  quizCount: document.querySelector("#quiz-count"),
+  quizList: document.querySelector("#quiz-list"),
+  quizEmpty: document.querySelector("#quiz-empty"),
+  quizReset: document.querySelector("#quiz-reset"),
   sidebar: document.querySelector("#sidebar"),
   scrim: document.querySelector("#scrim"),
 };
@@ -364,6 +369,86 @@ function renderMechanics(nodeId) {
   }
 }
 
+function renderQuiz(nodeId) {
+  const questions = FLASHCARDS[nodeId] || [];
+  dom.quizCount.textContent = questions.length;
+  dom.quizEmpty.hidden = questions.length !== 0;
+  dom.quizReset.hidden = questions.length === 0;
+  dom.quizList.replaceChildren();
+
+  for (const [questionIndex, question] of questions.entries()) {
+    const card = document.createElement("article");
+    card.className = "quiz-card";
+
+    const meta = document.createElement("div");
+    meta.className = "quiz-meta";
+    const category = document.createElement("span");
+    const difficulty = document.createElement("span");
+    difficulty.className = "difficulty";
+    category.textContent = question.category || `題目 ${questionIndex + 1}`;
+    difficulty.textContent = `${"●".repeat(Math.max(1, Number(question.difficulty) || 1))} 難度 ${Number(question.difficulty) || 1}`;
+    meta.append(category, difficulty);
+
+    const prompt = document.createElement("p");
+    prompt.className = "quiz-question";
+    prompt.textContent = `${questionIndex + 1}. ${question.question}`;
+    card.append(meta, prompt);
+
+    if (question.imageUrl) {
+      const image = document.createElement("img");
+      image.className = "quiz-image";
+      image.src = question.imageUrl;
+      image.alt = `題目 ${questionIndex + 1} 圖片`;
+      image.loading = "lazy";
+      card.append(image);
+    }
+
+    const options = document.createElement("div");
+    options.className = "quiz-options";
+    for (const [optionIndex, option] of (question.options || []).entries()) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "quiz-option";
+      button.dataset.optionIndex = String(optionIndex);
+      const marker = document.createElement("span");
+      marker.className = "option-marker";
+      marker.textContent = String.fromCharCode(65 + optionIndex);
+      const text = document.createElement("span");
+      text.textContent = option;
+      button.append(marker, text);
+      button.addEventListener("click", () => answerQuestion(card, question, optionIndex));
+      options.append(button);
+    }
+
+    const result = document.createElement("div");
+    result.className = "quiz-result";
+    const resultLabel = document.createElement("strong");
+    resultLabel.textContent = "答案解析";
+    const resultText = document.createElement("span");
+    resultText.textContent = question.answer || "";
+    result.append(resultLabel, resultText);
+    card.append(options, result);
+    dom.quizList.append(card);
+  }
+}
+
+function answerQuestion(card, question, selectedIndex) {
+  if (card.classList.contains("answered")) return;
+  card.classList.add("answered");
+  const correctIndex = Number(question.correctIdx);
+  card.querySelectorAll(".quiz-option").forEach((button) => {
+    const optionIndex = Number(button.dataset.optionIndex);
+    button.disabled = true;
+    if (optionIndex === correctIndex) {
+      button.classList.add("correct");
+    } else if (optionIndex === selectedIndex) {
+      button.classList.add("wrong");
+    } else {
+      button.classList.add("dimmed");
+    }
+  });
+}
+
 function selectNode(nodeId, updateHash = true) {
   const node = nodeById.get(nodeId);
   if (!node) return;
@@ -386,6 +471,7 @@ function selectNode(nodeId, updateHash = true) {
   dom.panelLabel.textContent = node.label;
   dom.panelDescription.textContent = node.fullName || "尚無說明";
   renderMechanics(nodeId);
+  renderQuiz(nodeId);
 
   const incoming = EDGES.filter((edge) => edge.target === nodeId)
     .map((edge) => nodeById.get(edge.source))
@@ -469,6 +555,9 @@ function bindControls() {
   document.querySelector("#fit-view").addEventListener("click", fitView);
   document.querySelector("#panel-close").addEventListener("click", closePanel);
   document.querySelector("#focus-node").addEventListener("click", () => centerNode(state.selectedId));
+  dom.quizReset.addEventListener("click", () => {
+    if (state.selectedId) renderQuiz(state.selectedId);
+  });
 
   dom.search.addEventListener("input", () => {
     state.query = dom.search.value.trim().toLocaleLowerCase("zh-Hant");
