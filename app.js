@@ -1,4 +1,4 @@
-import { BRIDGES, EDGES, NODES } from "./data.js";
+import { BRIDGES, EDGES, MECHANICS, NODES } from "./data.js";
 
 const NODE_W = 154;
 const NODE_H = 50;
@@ -24,6 +24,14 @@ const dom = {
   incoming: document.querySelector("#incoming-list"),
   outgoing: document.querySelector("#outgoing-list"),
   bridgeList: document.querySelector("#bridge-list"),
+  mechanics: document.querySelector("#mechanics"),
+  mechanicsDefinition: document.querySelector("#mechanics-definition"),
+  mechanicsChain: document.querySelector("#mechanics-chain"),
+  mechanicsReasoning: document.querySelector("#mechanics-reasoning"),
+  mechanicsClinical: document.querySelector("#mechanics-clinical"),
+  mechanicsConfusion: document.querySelector("#mechanics-confusion"),
+  mechanicsNext: document.querySelector("#mechanics-next"),
+  mechanicsEmpty: document.querySelector("#mechanics-empty"),
   sidebar: document.querySelector("#sidebar"),
   scrim: document.querySelector("#scrim"),
 };
@@ -286,6 +294,76 @@ function renderRelationList(container, relatedNodes, prefix) {
   }
 }
 
+function setMechanicsSection(sectionId, visible) {
+  document.querySelector(sectionId).hidden = !visible;
+}
+
+function renderMechanics(nodeId) {
+  const mechanics = MECHANICS[nodeId];
+  const hasContent =
+    mechanics &&
+    (mechanics.definition ||
+      mechanics.chain?.length ||
+      mechanics.reasoning?.length ||
+      mechanics.clinical ||
+      mechanics.confusion ||
+      mechanics.next_nodes?.length);
+
+  dom.mechanicsEmpty.hidden = Boolean(hasContent);
+  setMechanicsSection("#definition-section", Boolean(mechanics?.definition));
+  setMechanicsSection("#chain-section", Boolean(mechanics?.chain?.length));
+  setMechanicsSection("#reasoning-section", Boolean(mechanics?.reasoning?.length));
+  setMechanicsSection("#clinical-section", Boolean(mechanics?.clinical));
+  setMechanicsSection("#confusion-section", Boolean(mechanics?.confusion));
+  setMechanicsSection("#next-section", Boolean(mechanics?.next_nodes?.length));
+
+  if (!mechanics) return;
+
+  dom.mechanicsDefinition.textContent = mechanics.definition || "";
+  dom.mechanicsClinical.textContent = mechanics.clinical || "";
+  dom.mechanicsConfusion.textContent = mechanics.confusion || "";
+
+  dom.mechanicsChain.replaceChildren();
+  for (const item of mechanics.chain || []) {
+    const row = document.createElement("div");
+    row.className = "chain-item";
+    const content = document.createElement("div");
+    const label = document.createElement("b");
+    const value = document.createElement("p");
+    label.textContent = item.label || "連動";
+    value.textContent = item.value || "";
+    content.append(label, value);
+    row.append(content);
+    dom.mechanicsChain.append(row);
+  }
+
+  dom.mechanicsReasoning.replaceChildren();
+  for (const step of mechanics.reasoning || []) {
+    const item = document.createElement("li");
+    item.textContent = step;
+    dom.mechanicsReasoning.append(item);
+  }
+
+  dom.mechanicsNext.replaceChildren();
+  for (const next of mechanics.next_nodes || []) {
+    const target = nodeById.get(next.id);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "next-item";
+    const label = document.createElement("b");
+    const reason = document.createElement("small");
+    label.textContent = `→ ${next.label || target?.label || next.id}`;
+    reason.textContent = next.reason || "";
+    button.append(label, reason);
+    button.addEventListener("click", () => {
+      if (!target) return;
+      selectNode(target.id);
+      centerNode(target.id);
+    });
+    dom.mechanicsNext.append(button);
+  }
+}
+
 function selectNode(nodeId, updateHash = true) {
   const node = nodeById.get(nodeId);
   if (!node) return;
@@ -307,6 +385,7 @@ function selectNode(nodeId, updateHash = true) {
   dom.panelId.textContent = node.id.toUpperCase();
   dom.panelLabel.textContent = node.label;
   dom.panelDescription.textContent = node.fullName || "尚無說明";
+  renderMechanics(nodeId);
 
   const incoming = EDGES.filter((edge) => edge.target === nodeId)
     .map((edge) => nodeById.get(edge.source))
