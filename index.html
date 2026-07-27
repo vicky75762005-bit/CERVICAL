@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="上頸椎與顱骨力學互動式知識地圖，整合 82 個節點與跨系統連動關係。"
+    />
+    <meta name="theme-color" content="#071412" />
+    <title>CERVICAL Atlas｜頸椎 × 顱骨互動地圖</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="./" aria-label="CERVICAL Atlas 首頁">
+          <span class="brand-mark" aria-hidden="true">C</span>
+          <span>
+            <strong>CERVICAL ATLAS</strong>
+            <small>UPPER CERVICAL × CRANIAL MAP</small>
+          </span>
+        </a>
+
+        <div class="top-stats" aria-label="地圖統計">
+          <span><b id="visible-count">82</b> 節點</span>
+          <span><b>91</b> 關聯</span>
+          <span><b>7</b> 橋接</span>
+        </div>
+
+        <button class="icon-button mobile-filter" id="mobile-filter" type="button" aria-label="開啟篩選">
+          篩選
+        </button>
+      </header>
+
+      <main class="workspace">
+        <aside class="sidebar" id="sidebar" aria-label="地圖控制">
+          <div class="sidebar-head">
+            <div>
+              <p class="eyebrow">KNOWLEDGE LAYERS</p>
+              <h1>頸椎 × 顱骨<br />互動式知識圖譜</h1>
+            </div>
+            <button class="sidebar-close" id="sidebar-close" type="button" aria-label="關閉篩選">×</button>
+          </div>
+
+          <label class="search-box">
+            <span aria-hidden="true">⌕</span>
+            <input id="search" type="search" placeholder="搜尋節點、關節或技術…" autocomplete="off" />
+            <kbd>/</kbd>
+          </label>
+
+          <section class="filter-section" aria-labelledby="system-title">
+            <div class="section-title">
+              <h2 id="system-title">系統</h2>
+              <button id="reset-filters" type="button">全部顯示</button>
+            </div>
+            <label class="filter-row">
+              <input type="checkbox" name="tree-filter" value="A" checked />
+              <span class="swatch swatch-a"></span>
+              <span>Tree A · 上頸椎</span>
+              <b>34</b>
+            </label>
+            <label class="filter-row">
+              <input type="checkbox" name="tree-filter" value="B" checked />
+              <span class="swatch swatch-b"></span>
+              <span>Tree B · 顱骨</span>
+              <b>48</b>
+            </label>
+            <label class="filter-row bridge-toggle">
+              <input id="bridge-filter" type="checkbox" checked />
+              <span class="swatch swatch-bridge"></span>
+              <span>跨系統橋接</span>
+              <b>7</b>
+            </label>
+          </section>
+
+          <section class="filter-section" aria-labelledby="type-title">
+            <h2 id="type-title">節點類型</h2>
+            <div class="type-grid" id="type-filters">
+              <button class="type-chip active" type="button" data-type="root">起點</button>
+              <button class="type-chip active" type="button" data-type="branch">分支</button>
+              <button class="type-chip active" type="button" data-type="test">測試</button>
+              <button class="type-chip active" type="button" data-type="intervention">介入</button>
+              <button class="type-chip active" type="button" data-type="clinical">臨床</button>
+              <button class="type-chip active" type="button" data-type="default">概念</button>
+            </div>
+          </section>
+
+          <section class="filter-section guide">
+            <h2>操作提示</h2>
+            <p>拖曳畫布移動，滾輪或雙指縮放。點選節點可查看說明與上下游關係。</p>
+          </section>
+
+          <p class="disclaimer">本頁僅供學習與資訊整理，不能取代醫療診斷或專業臨床訓練。</p>
+        </aside>
+
+        <section class="map-area" aria-label="互動式樹狀圖">
+          <div class="map-header">
+            <div>
+              <p class="eyebrow">INTEGRATED DECISION TREE</p>
+              <h2>上頸椎評估 <span>連動</span> 顱骨力學</h2>
+            </div>
+            <div class="map-actions">
+              <button type="button" id="zoom-out" aria-label="縮小">−</button>
+              <button type="button" id="fit-view">適合畫面</button>
+              <button type="button" id="zoom-in" aria-label="放大">＋</button>
+            </div>
+          </div>
+
+          <div class="canvas-wrap" id="canvas-wrap">
+            <div class="canvas-grid" aria-hidden="true"></div>
+            <svg class="edge-layer" id="edge-layer" aria-hidden="true"></svg>
+            <div class="node-layer" id="node-layer"></div>
+            <div class="empty-state" id="empty-state" hidden>
+              <strong>找不到符合的節點</strong>
+              <span>請調整搜尋字詞或篩選條件。</span>
+            </div>
+            <svg class="minimap" id="minimap" aria-label="地圖縮圖"></svg>
+            <div class="zoom-readout" id="zoom-readout">100%</div>
+          </div>
+
+          <div class="legend" aria-label="圖例">
+            <span><i class="legend-line line-a"></i>上頸椎路徑</span>
+            <span><i class="legend-line line-b"></i>顱骨路徑</span>
+            <span><i class="legend-line line-bridge"></i>跨系統橋接</span>
+          </div>
+        </section>
+
+        <aside class="detail-panel" id="detail-panel" aria-live="polite" aria-label="節點詳情">
+          <button class="panel-close" id="panel-close" type="button" aria-label="關閉節點詳情">×</button>
+          <div class="panel-empty">
+            <span class="panel-orbit" aria-hidden="true"></span>
+            <p class="eyebrow">NODE INSPECTOR</p>
+            <h2>選擇一個節點</h2>
+            <p>節點的中英文名稱、分類及相關路徑會顯示在這裡。</p>
+          </div>
+          <div class="panel-content" id="panel-content" hidden>
+            <div class="node-badge" id="panel-badge"></div>
+            <p class="eyebrow" id="panel-id"></p>
+            <h2 id="panel-label"></h2>
+            <p class="panel-description" id="panel-description"></p>
+            <div class="relationship-block">
+              <h3>上游節點</h3>
+              <div class="relationship-list" id="incoming-list"></div>
+            </div>
+            <div class="relationship-block">
+              <h3>下游節點</h3>
+              <div class="relationship-list" id="outgoing-list"></div>
+            </div>
+            <div class="relationship-block bridge-block">
+              <h3>跨系統橋接</h3>
+              <div class="relationship-list" id="bridge-list"></div>
+            </div>
+            <button class="focus-button" id="focus-node" type="button">置中此節點</button>
+          </div>
+        </aside>
+      </main>
+
+      <footer>
+        <span>CERVICAL Atlas · 互動式解剖知識地圖</span>
+        <span>
+          資料架構整理自
+          <a href="https://anatomy.whatsupanatomy.io/anatomy/tree/all" target="_blank" rel="noreferrer">
+            What's Up Anatomy
+          </a>
+        </span>
+      </footer>
+    </div>
+
+    <div class="scrim" id="scrim"></div>
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
