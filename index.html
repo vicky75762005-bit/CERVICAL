@@ -117,6 +117,19 @@
             </div>
             <svg class="minimap" id="minimap" aria-label="地圖縮圖"></svg>
             <div class="zoom-readout" id="zoom-readout">100%</div>
+            <aside class="bridge-popover" id="bridge-popover" role="dialog" aria-labelledby="bridge-popover-title" hidden>
+              <button class="bridge-popover-close" id="bridge-popover-close" type="button" aria-label="關閉橋接說明">
+                ×
+              </button>
+              <p class="eyebrow">CROSS-SYSTEM BRIDGE</p>
+              <h3 id="bridge-popover-title"></h3>
+              <p class="bridge-popover-description" id="bridge-popover-description"></p>
+              <div class="bridge-route" id="bridge-route"></div>
+              <div class="bridge-actions">
+                <button id="bridge-source-button" type="button"></button>
+                <button id="bridge-target-button" type="button"></button>
+              </div>
+            </aside>
           </div>
 
           <div class="legend" aria-label="圖例">
