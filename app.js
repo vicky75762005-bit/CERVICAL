@@ -24,6 +24,12 @@ const dom = {
   incoming: document.querySelector("#incoming-list"),
   outgoing: document.querySelector("#outgoing-list"),
   bridgeList: document.querySelector("#bridge-list"),
+  bridgePopover: document.querySelector("#bridge-popover"),
+  bridgePopoverTitle: document.querySelector("#bridge-popover-title"),
+  bridgePopoverDescription: document.querySelector("#bridge-popover-description"),
+  bridgeRoute: document.querySelector("#bridge-route"),
+  bridgeSourceButton: document.querySelector("#bridge-source-button"),
+  bridgeTargetButton: document.querySelector("#bridge-target-button"),
   mechanics: document.querySelector("#mechanics"),
   mechanicsDefinition: document.querySelector("#mechanics-definition"),
   mechanicsChain: document.querySelector("#mechanics-chain"),
@@ -131,7 +137,27 @@ function renderEdges() {
       d: connectorPath(source, target, 14),
     });
     dom.edgeLayer.append(path);
-    edgeRecords.push({ ...bridge, kind: "bridge", element: path });
+
+    const annotation = document.createElement("button");
+    annotation.type = "button";
+    annotation.className = "bridge-annotation";
+    annotation.style.left = `${(source.px + target.px + NODE_W) / 2 - 110}px`;
+    annotation.style.top = `${(source.py + target.py + NODE_H) / 2 - 17}px`;
+    annotation.title = bridge.fullName || bridge.label;
+    annotation.setAttribute("aria-label", `跨系統橋接：${bridge.fullName || bridge.label}`);
+    const symbol = document.createElement("span");
+    symbol.className = "bridge-symbol";
+    symbol.textContent = "↗";
+    const label = document.createElement("span");
+    label.className = "bridge-annotation-label";
+    label.textContent = bridge.label;
+    annotation.append(symbol, label);
+    annotation.addEventListener("click", (event) => {
+      event.stopPropagation();
+      openBridgePopover(bridge);
+    });
+    dom.nodeLayer.append(annotation);
+    edgeRecords.push({ ...bridge, kind: "bridge", element: path, annotation });
   }
 }
 
@@ -264,7 +290,9 @@ function updateFilters() {
     const endpointsVisible = visibleIds.has(edge.source) && visibleIds.has(edge.target);
     const bridgeEnabled = edge.kind !== "bridge" || state.bridgesVisible;
     edge.element.style.display = endpointsVisible && bridgeEnabled ? "" : "none";
+    if (edge.annotation) edge.annotation.style.display = endpointsVisible && bridgeEnabled ? "" : "none";
   }
+  if (!state.bridgesVisible) closeBridgePopover();
 
   dom.visibleCount.textContent = visibleIds.size;
   dom.emptyState.hidden = visibleIds.size !== 0;
@@ -283,6 +311,32 @@ function relationButton(node, prefix = "") {
     centerNode(node.id);
   });
   return button;
+}
+
+function openBridgePopover(bridge) {
+  const source = nodeById.get(bridge.source);
+  const target = nodeById.get(bridge.target);
+  if (!source || !target) return;
+  dom.bridgePopoverTitle.textContent = bridge.label;
+  dom.bridgePopoverDescription.textContent = bridge.fullName || bridge.label;
+  dom.bridgeRoute.textContent = `${source.label} → ${target.label}`;
+  dom.bridgeSourceButton.textContent = `來源｜${source.label}`;
+  dom.bridgeTargetButton.textContent = `目標｜${target.label}`;
+  dom.bridgeSourceButton.onclick = () => {
+    selectNode(source.id);
+    centerNode(source.id);
+    closeBridgePopover();
+  };
+  dom.bridgeTargetButton.onclick = () => {
+    selectNode(target.id);
+    centerNode(target.id);
+    closeBridgePopover();
+  };
+  dom.bridgePopover.hidden = false;
+}
+
+function closeBridgePopover() {
+  dom.bridgePopover.hidden = true;
 }
 
 function renderRelationList(container, relatedNodes, prefix) {
@@ -461,6 +515,8 @@ function selectNode(nodeId, updateHash = true) {
     const connected = record.source === nodeId || record.target === nodeId;
     record.element.classList.toggle("highlighted", connected);
     record.element.classList.toggle("dimmed", !connected);
+    record.annotation?.classList.toggle("highlighted", connected);
+    record.annotation?.classList.toggle("dimmed", !connected);
   }
 
   dom.panelEmpty.hidden = true;
@@ -518,7 +574,10 @@ function closePanel() {
   dom.panelEmpty.hidden = false;
   dom.panelContent.hidden = true;
   for (const element of nodeElements.values()) element.classList.remove("selected");
-  for (const record of edgeRecords) record.element.classList.remove("highlighted", "dimmed");
+  for (const record of edgeRecords) {
+    record.element.classList.remove("highlighted", "dimmed");
+    record.annotation?.classList.remove("highlighted", "dimmed");
+  }
   history.replaceState(null, "", location.pathname + location.search);
 }
 
@@ -555,6 +614,7 @@ function bindControls() {
   document.querySelector("#fit-view").addEventListener("click", fitView);
   document.querySelector("#panel-close").addEventListener("click", closePanel);
   document.querySelector("#focus-node").addEventListener("click", () => centerNode(state.selectedId));
+  document.querySelector("#bridge-popover-close").addEventListener("click", closeBridgePopover);
   dom.quizReset.addEventListener("click", () => {
     if (state.selectedId) renderQuiz(state.selectedId);
   });
@@ -631,7 +691,7 @@ function bindCanvasGestures() {
   );
 
   dom.wrap.addEventListener("pointerdown", (event) => {
-    if (event.target.closest(".tree-node")) return;
+    if (event.target.closest(".tree-node, .bridge-annotation, .bridge-popover")) return;
     state.pointer = { x: event.clientX - state.x, y: event.clientY - state.y };
     state.dragging = true;
     dom.wrap.classList.add("grabbing");
