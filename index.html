@@ -7,7 +7,7 @@
       name="description"
       content="上頸椎與顱骨力學互動式知識地圖，整合 82 個節點與跨系統連動關係。"
     />
-    <meta name="theme-color" content="#071412" />
+    <meta name="theme-color" content="#f1ede4" />
     <title>CERVICAL Atlas｜頸椎 × 顱骨互動地圖</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
@@ -139,6 +139,33 @@
             <p class="eyebrow" id="panel-id"></p>
             <h2 id="panel-label"></h2>
             <p class="panel-description" id="panel-description"></p>
+            <div class="mechanics" id="mechanics">
+              <section class="mechanics-section" id="definition-section">
+                <h3><span>01</span>力學定義</h3>
+                <p id="mechanics-definition"></p>
+              </section>
+              <section class="mechanics-section" id="chain-section">
+                <h3><span>02</span>連鎖反應</h3>
+                <div class="chain-list" id="mechanics-chain"></div>
+              </section>
+              <section class="mechanics-section" id="reasoning-section">
+                <h3><span>03</span>推理步驟</h3>
+                <ol class="reasoning-list" id="mechanics-reasoning"></ol>
+              </section>
+              <section class="mechanics-section clinical-note" id="clinical-section">
+                <h3><span>04</span>臨床連結</h3>
+                <p id="mechanics-clinical"></p>
+              </section>
+              <section class="mechanics-section confusion-note" id="confusion-section">
+                <h3><span>05</span>常見混淆</h3>
+                <p id="mechanics-confusion"></p>
+              </section>
+              <section class="mechanics-section" id="next-section">
+                <h3><span>06</span>下一步</h3>
+                <div class="next-list" id="mechanics-next"></div>
+              </section>
+              <p class="mechanics-empty" id="mechanics-empty" hidden>這個節點目前沒有額外的力學筆記。</p>
+            </div>
             <div class="relationship-block">
               <h3>上游節點</h3>
               <div class="relationship-list" id="incoming-list"></div>
