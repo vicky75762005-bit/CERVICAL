@@ -169,6 +169,9 @@ function renderEdges() {
 }
 
 function renderNodes() {
+  dom.nodeLayer.style.width = `${bounds.width}px`;
+  dom.nodeLayer.style.height = `${bounds.height}px`;
+
   for (const node of nodes) {
     const button = document.createElement("button");
     button.type = "button";
@@ -185,6 +188,9 @@ function renderNodes() {
       }
       event.stopPropagation();
       selectNode(node.id);
+      if (window.matchMedia("(max-width: 760px)").matches && state.scale < 0.55) {
+        centerNode(node.id, 0.72);
+      }
     });
     dom.nodeLayer.append(button);
     nodeElements.set(node.id, button);
@@ -244,11 +250,22 @@ function applyTransform() {
   updateMinimapViewport();
 }
 
-function fitView() {
+function fitView(showEntireTree = false) {
   const rect = dom.wrap.getBoundingClientRect();
   const scaleX = (rect.width - 70) / bounds.width;
   const scaleY = (rect.height - 70) / bounds.height;
-  state.scale = Math.max(0.12, Math.min(scaleX, scaleY, 0.92));
+  const fullTreeScale = Math.max(0.12, Math.min(scaleX, scaleY, 0.92));
+  const mobileReadableView = window.matchMedia("(max-width: 760px)").matches && !showEntireTree;
+  state.scale = mobileReadableView ? Math.max(fullTreeScale, 0.5) : fullTreeScale;
+
+  if (mobileReadableView) {
+    const root = nodeById.get("a-root");
+    state.x = rect.width / 2 - (root.px + NODE_W / 2) * state.scale;
+    state.y = 40 - root.py * state.scale;
+    applyTransform();
+    return;
+  }
+
   state.x = (rect.width - bounds.width * state.scale) / 2;
   state.y = (rect.height - bounds.height * state.scale) / 2;
   applyTransform();
@@ -622,7 +639,7 @@ function escapeHtml(value) {
 function bindControls() {
   document.querySelector("#zoom-in").addEventListener("click", () => setZoom(state.scale * 1.2));
   document.querySelector("#zoom-out").addEventListener("click", () => setZoom(state.scale / 1.2));
-  document.querySelector("#fit-view").addEventListener("click", fitView);
+  document.querySelector("#fit-view").addEventListener("click", () => fitView(true));
   document.querySelector("#panel-close").addEventListener("click", closePanel);
   document.querySelector("#focus-node").addEventListener("click", () => centerNode(state.selectedId));
   document.querySelector("#bridge-popover-close").addEventListener("click", closeBridgePopover);
@@ -691,6 +708,8 @@ function bindControls() {
 }
 
 function bindCanvasGestures() {
+  const useTouchEvents = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+
   dom.wrap.addEventListener(
     "wheel",
     (event) => {
@@ -702,6 +721,7 @@ function bindCanvasGestures() {
   );
 
   dom.wrap.addEventListener("pointerdown", (event) => {
+    if (useTouchEvents && event.pointerType === "touch") return;
     const interactiveTarget = event.target.closest(".tree-node, .bridge-annotation, .bridge-popover");
     if (interactiveTarget && state.pointers.size === 0) return;
 
@@ -720,6 +740,7 @@ function bindCanvasGestures() {
   });
 
   dom.wrap.addEventListener("pointermove", (event) => {
+    if (useTouchEvents && event.pointerType === "touch") return;
     if (!state.pointers.has(event.pointerId)) return;
     state.pointers.set(event.pointerId, { x: event.clientX, y: event.clientY });
 
@@ -735,6 +756,7 @@ function bindCanvasGestures() {
   });
 
   const endGesture = (event) => {
+    if (useTouchEvents && event.pointerType === "touch") return;
     state.pointers.delete(event.pointerId);
 
     if (state.pinch) {
@@ -759,10 +781,11 @@ function bindCanvasGestures() {
   };
   dom.wrap.addEventListener("pointerup", endGesture);
   dom.wrap.addEventListener("pointercancel", endGesture);
+
+  if (useTouchEvents) bindTouchGestures();
 }
 
-function beginPinch() {
-  const points = [...state.pointers.values()].slice(0, 2);
+function beginPinch(points = [...state.pointers.values()].slice(0, 2)) {
   const rect = dom.wrap.getBoundingClientRect();
   const midpointX = (points[0].x + points[1].x) / 2 - rect.left;
   const midpointY = (points[0].y + points[1].y) / 2 - rect.top;
@@ -777,8 +800,7 @@ function beginPinch() {
   dom.wrap.classList.add("grabbing");
 }
 
-function updatePinch() {
-  const points = [...state.pointers.values()].slice(0, 2);
+function updatePinch(points = [...state.pointers.values()].slice(0, 2)) {
   const distance = Math.hypot(points[1].x - points[0].x, points[1].y - points[0].y);
   if (!state.pinch.distance) return;
 
@@ -791,6 +813,85 @@ function updatePinch() {
   state.x = midpointX - state.pinch.worldX * nextScale;
   state.y = midpointY - state.pinch.worldY * nextScale;
   applyTransform();
+}
+
+function bindTouchGestures() {
+  let touchWasPinching = false;
+
+  dom.wrap.addEventListener(
+    "touchstart",
+    (event) => {
+      const points = touchPoints(event.touches);
+      const interactiveTarget = event.target.closest(".tree-node, .bridge-annotation, .bridge-popover");
+      if (points.length === 1 && interactiveTarget) return;
+
+      if (points.length >= 2) {
+        event.preventDefault();
+        touchWasPinching = true;
+        beginPinch(points);
+        return;
+      }
+
+      if (points.length === 1) {
+        event.preventDefault();
+        state.pointer = { x: points[0].x - state.x, y: points[0].y - state.y };
+        state.dragging = true;
+        dom.wrap.classList.add("grabbing");
+      }
+    },
+    { passive: false },
+  );
+
+  dom.wrap.addEventListener(
+    "touchmove",
+    (event) => {
+      const points = touchPoints(event.touches);
+      if (points.length >= 2) {
+        event.preventDefault();
+        if (!state.pinch) beginPinch(points);
+        updatePinch(points);
+        return;
+      }
+
+      if (points.length === 1 && state.dragging && state.pointer) {
+        event.preventDefault();
+        state.x = points[0].x - state.pointer.x;
+        state.y = points[0].y - state.pointer.y;
+        applyTransform();
+      }
+    },
+    { passive: false },
+  );
+
+  const endTouchGesture = (event) => {
+    const points = touchPoints(event.touches);
+    if (touchWasPinching && points.length < 2) {
+      state.suppressClick = true;
+      clearTimeout(state.suppressClickTimer);
+      state.suppressClickTimer = setTimeout(() => {
+        state.suppressClick = false;
+      }, 240);
+    }
+
+    state.pinch = null;
+    if (points.length === 1) {
+      state.pointer = { x: points[0].x - state.x, y: points[0].y - state.y };
+      state.dragging = true;
+      return;
+    }
+
+    state.dragging = false;
+    state.pointer = null;
+    touchWasPinching = false;
+    dom.wrap.classList.remove("grabbing");
+  };
+
+  dom.wrap.addEventListener("touchend", endTouchGesture, { passive: true });
+  dom.wrap.addEventListener("touchcancel", endTouchGesture, { passive: true });
+}
+
+function touchPoints(touchList) {
+  return Array.from(touchList, (touch) => ({ x: touch.clientX, y: touch.clientY }));
 }
 
 function openSidebar() {
@@ -818,7 +919,7 @@ function initialize() {
       centerNode(hashId);
     }
   });
-  window.addEventListener("resize", fitView);
+  window.addEventListener("resize", () => fitView());
 }
 
 initialize();
