@@ -417,6 +417,12 @@ function selectNode(nodeId, updateHash = true) {
   }
 
   dom.workspace.classList.add("panel-open");
+  requestAnimationFrame(() => {
+    dom.panel.scrollTo({
+      top: 0,
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+    });
+  });
   if (updateHash) history.replaceState(null, "", `#${encodeURIComponent(nodeId)}`);
 }
 
